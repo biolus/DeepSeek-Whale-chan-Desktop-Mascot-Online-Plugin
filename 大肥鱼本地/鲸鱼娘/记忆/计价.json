@@ -1,0 +1,48 @@
+{
+ "model": "auto",
+ "table": {
+  "deepseek-flash": {
+   "cache_hit": [
+    0.02,
+    0.04
+   ],
+   "cache_miss": [
+    1.0,
+    2.0
+   ],
+   "output": [
+    4.0,
+    8.0
+   ]
+  },
+  "deepseek-v4-pro": {
+   "cache_hit": [
+    0.15,
+    0.3
+   ],
+   "cache_miss": [
+    4.5,
+    9.0
+   ],
+   "output": [
+    13.5,
+    27.0
+   ]
+  }
+ },
+ "fallback_model": "deepseek-flash",
+ "peak_ranges": [
+  [
+   "09:00",
+   "12:00"
+  ],
+  [
+   "14:00",
+   "18:00"
+  ]
+ ],
+ "holidays": [],
+ "currency": "CNY",
+ "api_key": "",
+ "note": "DeepSeek 官方价；工作日 9-12 / 14-18 为高峰，其余（含周末）五折"
+}

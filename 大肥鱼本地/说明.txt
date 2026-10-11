@@ -1,0 +1,281 @@
+================================================================
+  DeepSeek 本地部署说明   ——   大肥鱼本地\
+  整理日期：2026-10-07    参考配置：8GB 显存级别的笔记本显卡
+================================================================
+
+【一、这套东西是什么】
+
+在本机跑起来的 DeepSeek 官方开源模型（R1 蒸馏版 7B），完全离线，
+断网也能用，对话内容不出本机。
+
+  · 模型：DeepSeek-R1-Distill-Qwen-7B  （Q4_K_M 量化，4.36 GB）
+          深度求索官方蒸馏模型，底座是通义千问 2.5-7B，
+          中文好，带思维链（会先"想"再答）。
+  · 引擎：llama.cpp  b9637  （Vulkan 后端，免安装、解压即用的自包含运行时）
+  · 实测：约 30~48 tokens/秒（全部跑在显卡上），首字延迟 1 秒左右
+
+说明：真正的 DeepSeek-V3 / R1 满血版是 671B 参数、权重 400GB 以上，
+      需要多张专业卡，任何家用机都跑不了。本地能跑的就是这个蒸馏版。
+
+
+【二、怎么用】
+
+  双击  大肥鱼.bat        ← 总控制台，一个入口管所有事
+
+     控制台菜单：
+       [1] 和模型聊天   选模型 → 起服务 → 自动打开网页对话界面
+       [2] 启动鲸鱼娘桌宠 等于双击 鲸鱼娘\启动鲸鱼娘.bat（已经开了就不会重复开）
+       [3] 命令行对话   黑窗口里直接聊（不占浏览器）
+       [4] 查看状态     当前跑的哪个模型、显存占用、第三方客户端接口地址
+       [5] 联网插件     让本地模型能上网查资料
+       [6] 停止所有服务 关掉桌宠（外壳 + 后端 + 联网插件）+ 释放显存
+                       先请她体面退出（Electron app.quit()），赖着不走才按 PID
+                       精确结束 —— 不会碰机器上别的 Electron 应用
+       [0] 退出控制台（模型服务继续在后台跑；想停还是用 [6]）
+
+  双击  停止AI.bat        ← 一键停服务（不想开菜单时用）
+
+  两个模型都在 [1] 里选：
+     · Qwen2.5-7B-Instruct   纯对话模型，秒回，适合日常聊天  ★推荐
+     · DeepSeek-R1-Distill   推理模型，会先想再答，每句要等 15~60 秒
+
+  控制台退出后模型服务会继续在后台跑，想停就在菜单里选 [5]。
+
+【三、目录里都有什么】
+
+  大肥鱼本地\
+  ├─ 大肥鱼.bat          ← 【总入口】控制台：聊天 / 桌宠 / 状态 / 停止
+  ├─ control.py          ← 控制台的实现
+  ├─ 停止AI.bat          ← 一键停止服务
+  ├─ 说明.txt            ← 本文件
+  ├─ 运行时\             ← llama.cpp Vulkan 版（当前使用，主力）
+  ├─ 运行时-CUDA\        ← llama.cpp CUDA 版（暂不可用，见第七节）
+  ├─ 运行时-CPU\         ← CPU 版兜底（显卡出问题时可用）
+  ├─ models\             ← 模型：DeepSeek-R1-abliterated 4.36GB + Qwen2.5 4.36GB
+  ├─ 桌宠\               ← 鲸鱼娘桌宠（当前不在原位，见下方说明）
+  ├─ 缓存\               ← 下载的原始压缩包，占 205MB，可安全删除
+  ├─ 日志\               ← 大脑.log、上次选择.json（首次运行会自动重建）
+  └─ 工具\
+     ├─ 下载器.py        ← 多线程断点续传下载器（下别的模型用）
+     ├─ 下载清单.txt     ← 下载任务清单，改这里再跑下载器
+     └─ 打开网页.bat     ← 内部用：等就绪后开浏览器
+
+【四、重要注意事项】
+
+  1. 整个文件夹可以随意改名、搬家，bat 脚本内部用的是相对路径，不受影响。
+     但如果你要手动敲命令，请先切到「大肥鱼本地」文件夹再走相对路径，
+     例如（把 <大肥鱼本地> 换成你实际放的位置）：
+        cd /d "<大肥鱼本地>"
+        .\运行时\llama-cli.exe --list-devices
+     原因：llama.cpp 自己打不开含中文的「绝对路径」（程序编码缺陷），相对路径不受影响。
+
+  2. 显存 8GB，当前配置 -c 16384（1.6 万 token 上下文）约占用 5.5GB。
+     想开更长上下文，改 control.py 里的 CTX（约 6.5GB，仍可运行）
+     或 -c 65536（可能爆显存）。
+
+  3. 这是推理模型，回答前会先输出一大段"思考过程"。
+     如果发现回答是空的，说明 token 预算被思考过程用光了，
+     把网页界面里的 max_tokens 调大（建议 2000 以上）。
+
+  4. 局域网给手机用：控制台菜单 [4] 里能看到接口地址；要开放给局域网，
+     需在 control.py 里把 HOST 改成 0.0.0.0，或用命令行手动起服务。
+     注意：这样同网段的人都能访问，别在公共 WiFi 下开。
+     然后用手机访问 http://电脑IP:8080
+     注意：这样同网段的人都能访问，别在公共 WiFi 下开。
+
+
+【五、当成 API 用（OpenAI 兼容）】
+
+  服务启动后就是一个本地 OpenAI 兼容接口，任何支持 OpenAI 的软件
+  （Cherry Studio、ChatBox、NextChat、沉浸式翻译等）都能接：
+
+      接口地址： http://127.0.0.1:8080/v1
+      API Key ： 随便填（本地不校验）
+      模型名称： DeepSeek-R1-Distill-Qwen-7B-abliterated-Q4_K_M.gguf
+
+  Python 调用示例：
+
+      import requests
+      r = requests.post("http://127.0.0.1:8080/v1/chat/completions", json={
+          "messages": [{"role": "user", "content": "你好，介绍一下你自己"}],
+          "max_tokens": 2000,
+      }, timeout=300)
+      msg = r.json()["choices"][0]["message"]
+      print(msg.get("reasoning_content", ""))   # 思考过程（可选）
+      print(msg["content"])                     # 正式回答
+
+  其它端点：
+      GET  /health         服务健康状态
+      GET  /v1/models      模型列表
+      GET  /props          当前参数
+      POST /v1/chat/completions   对话
+      POST /completion            纯文本补全
+
+
+【六、想换 / 加别的模型】
+
+  编辑 工具\下载清单.txt，一行一个任务，格式：
+      <下载地址> <保存路径>
+
+  再运行（会自动跳过已下好的、支持断点续传），先切到「大肥鱼本地」文件夹：
+      cd /d "<大肥鱼本地>"
+      python 工具\下载器.py --file 工具\下载清单.txt 8
+
+  推荐的模型下载站（国内直连快）：
+      https://hf-mirror.com      HuggingFace 国内镜像，GGUF 模型最全
+      https://www.modelscope.cn  魔搭社区
+
+  换模型不用改代码：把 .gguf 放进 models\ ，控制台菜单 [1] 会自动列出来。
+  显存 8GB 建议：7B/8B 用 Q4_K_M，14B 用 Q4_K_M（会部分跑 CPU，变慢）。
+
+
+【七、关于 CUDA 版（运行时-CUDA）】
+
+  运行时-CUDA 里是 llama.cpp 的 CUDA 13.3 编译版，理论上比 Vulkan 快
+  10%~30%。但它需要 NVIDIA CUDA 13 的运行库
+  （cudart64_13.dll / cublas64_13.dll / cublasLt64_13.dll），
+  本机没装 CUDA Toolkit，所以现在跑不起来（识别不到显卡）。
+
+  想启用的话：
+    1) 装 NVIDIA CUDA Toolkit 13.x，或从别的机器拷这三个 dll 进来；
+    2) 把 CUDA 版目录里的文件复制到 运行时\ 覆盖，
+       或把 control.py 里的 RUNTIME 变量指向 运行时-CUDA\llama-server.exe
+    3) 用 运行时\llama-cli.exe --list-devices 确认能列出 CUDA0。
+
+  当前 Vulkan 版已经能跑到约 40 tokens/秒，日常够用，不折腾也行。
+
+
+【八、文件来源与校验】
+
+  所有文件都是从国内可直连的镜像站下载的（GitHub / ollama 官网
+  在本地网络下几乎下不动，实测 0.06~0.2 MB/s 且频繁超时）：
+
+   模型  hf-mirror.com/unsloth/DeepSeek-R1-Distill-Qwen-7B-GGUF
+   运行时 www.modelscope.cn/models/ytr56269/llama.cpp-b9637-Windows-Runtime
+
+  注意：运行时压缩包来自魔搭社区用户上传的第三方镜像，不是官方发布渠道。
+  文件解压后只包含 llama.cpp 官方标准程序（llama-server.exe / llama-cli.exe
+  及配套 dll）。如果你介意，可以自行从 llama.cpp 官方 GitHub Releases
+  下载 llama-b9637-bin-win-vulkan-x64.zip 替换 运行时\ 目录。
+
+  各文件 SHA256（可自行核对，命令：certutil -hashfile 文件名 SHA256）：
+
+   models\DeepSeek-R1-Distill-Qwen-7B-abliterated-Q4_K_M.gguf
+     （来源 ngxson/DeepSeek-R1-Distill-Qwen-7B-abliterated-GGUF，可自行重算：certutil -hashfile 文件名 SHA256）
+   缓存\llama-vulkan.zip
+     A353945604CFFDAC3D0D6DA6392DE78CA565A531A6F2FF3521F44B9B7C6E553F
+   缓存\llama-cuda13.3.zip
+     8667E76077B40DB57FC680577C6D8B48B8AA3F58E34FC23A70BCC668A69C97E9
+   缓存\llama-cpu.zip
+     F7783C2B8C007F95E710AC40F26A24861A80B603B0B739FC54D7C926A4716C1E
+
+
+【九、常见问题】
+
+  Q: 黑窗口里的中文变成乱码？
+  A: 说明当前控制台代码页不是 936。脚本开头已写了 chcp 936，正常不会乱码；
+     万一还乱码，先手动执行 chcp 936 再运行脚本即可。
+
+  Q: 双击 bat 一闪而过？
+  A: 说明程序报错了。在该目录按住 Shift 右键 → "在此处打开终端"，
+     手动执行 python control.py 看报错信息。
+
+  Q: 提示端口被占用？
+  A: 先运行 停止AI.bat，或改 control.py 里的 PORT 变量。
+
+  Q: 显卡没被用上、速度很慢（每秒几个字）？
+  A: 用 .\运行时\llama-cli.exe --list-devices 检查是否列出你的显卡
+     （形如 "Vulkan0: NVIDIA GeForce ..."）。没列出就更新显卡驱动。
+
+  Q: 想彻底删掉？
+  A: 直接删除「大肥鱼本地」整个文件夹即可。本部署不写注册表、
+     不装服务、不改系统设置，删了就干净了。
+
+  Q: 控制台选「停止所有服务」，桌宠的外壳和后端没关掉？
+  A: 2026-10 已修。老版本只 taskkill 了 pythonw.exe —— 可启动脚本起后端用的是
+      `python server.py`（进程名是 python.exe），外壳又是 electron.exe，
+      所以两个都没关掉。现在 [6] 会：
+        · 先 POST 后端的 /api/quit，请她体面退出（Electron app.quit()，顺手卸模型）
+        · 按端口 8095 找到后端 PID 精确结束，按可执行文件路径认出外壳的
+          electron 再结束 —— 绝不用 taskkill /im electron.exe（那会误伤
+          VS Code / Discord 之类别的 Electron 应用）
+      「启动鲸鱼娘桌宠」[2] 那个弹出文件夹窗口的毛病也一起修了：原来写的是
+      cmd /c start "" "" <bat>，多出来的空参数被 start 当成"要打开的命令"。
+
+  Q: 不跟鲸鱼娘说话的时候，显卡还是被占满？
+  A: 2026-10 已修。她不再让模型常驻 —— 要说话才把 llama-server 拉起来，
+      说完安静 60 秒就停掉服务，显存整份还给系统。
+      想让它常驻（例如还要拿 8080 给别的软件用）：在她「⋯」菜单的
+      「大脑」页签点一下「显存策略」，或把 鲸鱼娘\记忆\配置.json 里的
+      manage_llm 改成 false。
+
+  Q: 她会自己冒出一长段重复的话，显卡一直满载？
+  A: 2026-10 已修，三处：① 主动说话过去只往历史里写 assistant、不写 user，
+      历史变成清一色 assistant，模型就照着复读（之前 鲸鱼娘\记忆\对话.json
+      里堆了一大串一模一样的记录，就是证据）；② 请求里没设任何重复惩罚；
+      ③ max_tokens 给到 512，而她只有 2.2 token/秒 —— 一句复读能烧
+      3 分多钟显卡。现在历史保证 user/assistant 交替、加了 repeat_penalty
+      等惩罚、复读一出现就立刻掐断连接（llama.cpp 收到断开就取消生成），
+      另外 max_tokens / 字数 / 秒数三道上限都收窄了。
+
+  Q: 底下「说话」那几个按钮点不准，她也拖不动 / 拖起来抽搐？
+  A: 2026-10 已修，是屏幕坐标用错了。外壳为了让她的视线跟着鼠标全屏转，
+      每 16ms 往页面里注入一个假的鼠标移动，坐标还是「整块屏幕归一化后再乘
+      窗口宽高」—— 根本不是光标在窗口里的位置。而页面判断「鼠标下面是不是
+      她的控件」（决定窗口要不要点击穿透）正是按那个坐标算的，于是穿透状态
+      每 16ms 翻一次，按钮按到一半就断了。
+      现在改成只走 IPC 喂一个只读的光标位置（只给视线用），命中判定只认真实
+      鼠标事件；按住鼠标期间还锁住状态，click 不可能被切成两半。
+      拖动那边则是：外壳搬窗口、页面也在搬，两边抢；而且 pet.js 取消了
+      pointerdown 的默认行为，导致外壳靠的 mousedown 根本不补发 —— 整窗拖动
+      一直是死的。现在桌面外壳里「拖她 = 外壳搬窗口」，页面不再插手。
+      细节见 鲸鱼娘\说明.txt 的「这次修了什么」⑥⑦。
+
+  Q: 生成速度只有 2~3 token/秒，正常吗？
+  A: 不正常。实测：R1 蒸馏和 Qwen2.5 Instruct 都是 ~2.2 token/秒；
+      指定 --device Vulkan0、上下文 4096/8192 都不变。生成期间模型确实
+      在显存里（占用约 5.4GB）、显存频率也跑满、GPU 显示 100%，
+      但功耗只有 34 W —— 说明 GPU 大部分时间在空等。
+      这是 运行时\ 里这个第三方 Vulkan 运行时的 kernel 效率问题，
+      改参数救不了。真要提速请换 CUDA 版（见第七节，缺三个 CUDA dll）。
+      在这之前，桌宠已经按 2.2 token/秒 把话说短、把显卡及时放掉。
+
+
+================================================================
+  十、桌宠的显存策略（2026-10 改进）
+
+================================================================
+
+  要求：不主动说话时本地模型不占显卡，对话时才占，平时不占。
+
+  做法（鲸鱼娘\server.py）：
+    · 按需拉起：你发消息、或她该主动开口时，才启动 llama-server。
+      没起过 4~6 秒；已经在跑同一个就直接复用。
+    · 空闲卸载：一轮说完，安静 idle_unload 秒（默认 60）就停掉
+      llama-server，显存立刻回到基线，GPU 占用 0。
+    · 卸载前先确认"真没人用"：查 /slots 有没有正在生成、查 /metrics 的
+      累计 token 有没有被别的客户端推高（比如 Cherry Studio 正聊着），
+      有人用就先留着，免得把模型从别人手下抽走。
+    · 她把 大肥鱼.bat 菜单 [1] 起的那个也一起接管（默认 manage_llm = true）。
+    · 例外：用任务管理器把后端 python 强杀了的话，已经拉起来的模型会留在
+      显存里（没人再负责按时卸载）。双击 停止AI.bat 就收拾干净了。
+
+  相关配置（鲸鱼娘\记忆\配置.json，也能在她「⋯」→「大脑」页签里改）：
+
+    manage_llm           true   她全权管显存：说话才拉起，空闲就卸载。
+                                设 "auto" 只卸她自己拉起的；false 则完全不管
+    idle_unload          60     空闲多少秒后卸载；填 0 = 不自动卸载
+    proactive            true   要不要自己主动开口
+    proactive_gap        240    安静多少秒后主动开口
+    llm_ctx              8192   上下文（桌宠只留几句短话，省显存）
+    max_tokens           200    你跟她说话时最多生成多少 token
+    max_tokens_proactive 96     她主动开口时更短
+    max_reply_chars      240    一轮正文最多留多少字（兜底掐断）
+    max_reply_seconds    35     一轮最多生成多少秒（兜底掐断）
+
+  接口（排查用）：
+    GET  /api/config     看当前设置、alive、managed
+    POST /api/config     改设置，如 {"manage_llm": false, "idle_unload": 0}
+    POST /api/release    立刻卸载模型、释放显存
+
+================================================================

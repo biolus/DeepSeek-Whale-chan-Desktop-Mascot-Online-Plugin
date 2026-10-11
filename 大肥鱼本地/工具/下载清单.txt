@@ -1,0 +1,11 @@
+# 下载清单：URL<空格>保存路径    （重跑同一命令可断点续传）
+# 用法：在「大肥鱼本地」目录里执行
+#       python 工具\下载器.py --file 工具\下载清单.txt 8
+#
+# 保存路径是相对于「大肥鱼本地」的，换机器/换盘都不用改。
+# 想下到别处，把下面每行的 models\... 换成你自己的绝对路径即可。
+#
+# ---- 当前装着的两个模型 ----
+https://hf-mirror.com/ngxson/DeepSeek-R1-Distill-Qwen-7B-abliterated-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-7B-abliterated-Q4_K_M.gguf models\DeepSeek-R1-Distill-Qwen-7B-abliterated-Q4_K_M.gguf
+https://hf-mirror.com/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf models\qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf
+https://hf-mirror.com/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m-00002-of-00002.gguf models\qwen2.5-7b-instruct-q4_k_m-00002-of-00002.gguf
