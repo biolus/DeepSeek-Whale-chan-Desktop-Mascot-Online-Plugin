@@ -2,7 +2,7 @@
 //
 //   window.__DSHPET_SHELL__                 页面用它判断"我在不在桌面壳里"
 //   window.webkit.messageHandlers.dshpetshell  和 macOS 版一一对应的消息通道
-//   window.dshpetBridge                     壳子自己加的（托盘相关，见下）
+//   window.dshpetShell                     壳子自己加的（收起小球 / 命中 / 全局光标…，见下）
 const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('__DSHPET_SHELL__', true)
