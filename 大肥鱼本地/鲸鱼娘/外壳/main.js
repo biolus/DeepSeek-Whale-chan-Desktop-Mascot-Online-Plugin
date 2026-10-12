@@ -460,8 +460,8 @@ function showHint(installed) {
   </div>
   <script>
     window.dshpet = {
-      install: () => window.dshpetBridge && window.dshpetBridge.install(),
-      reload: () => window.dshpetBridge && window.dshpetBridge.reload(),
+      install: () => window.dshpetShell && window.dshpetShell.install(),
+      reload: () => window.dshpetShell && window.dshpetShell.reload(),
     }
   </script></body>`
   win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
@@ -530,8 +530,13 @@ function createBall() {
     skipTaskbar: true,
     show: false,
     alwaysOnTop: true,
-    // ⚠️ 小球也必须挂 preload：它是靠 window.dshpetBridge 把点击/拖动报回来的，
+    // ⚠️ 小球也必须挂 preload：它是靠 window.dshpetShell 把点击/拖动报回来的，
     // 不挂就等于「小球点不动、拖不了」（写完先自查发现的）
+    // ⚠️⚠️ 这里以前写的是 window.dshpetBridge，可 preload.js 暴露的名字是
+    //    dshpetShell！因为后面都写成 `window.x && window.x.y()`，名字写错就
+    //    **静默失效** —— 不报错、不提示，小球点下去毫无反应，而它又是收起之后
+    //    唯一能把她叫回来的东西 → 主人反馈的「最小化之后按钮点不动」就是这个。
+    //    test_bridge_contract.py 专门盯这类桥名字写错。
     webPreferences: { contextIsolation: true, preload: path.join(__dirname, 'preload.js') },
   })
   ballWin.setAlwaysOnTop(true, 'screen-saver')
@@ -543,9 +548,9 @@ function createBall() {
         var d=false, moved=0, sx=0, sy=0;
         document.addEventListener('mousedown', function(e){ d=true; moved=0; sx=e.screenX; sy=e.screenY; e.preventDefault() });
         document.addEventListener('mousemove', function(e){ if(!d) return; moved=Math.max(moved, Math.abs(e.screenX-sx)+Math.abs(e.screenY-sy));
-          if(moved>3) window.dshpetBridge && window.dshpetBridge.ballMove(e.screenX-sx, e.screenY-sy) });
+          if(moved>3) window.dshpetShell && window.dshpetShell.ballMove(e.screenX-sx, e.screenY-sy) });
         document.addEventListener('mouseup', function(){ if(!d) return; d=false;
-          window.dshpetBridge && window.dshpetBridge.ballDrop(moved>3) });
+          window.dshpetShell && window.dshpetShell.ballDrop(moved>3) });
       })()
     `).catch(() => {})
   })
@@ -596,6 +601,30 @@ function expand() {
     win.showInactive()
     win.setAlwaysOnTop(true, 'screen-saver')
     win.webContents.executeJavaScript('window.DSHPet && DSHPet.setHidden && DSHPet.setHidden(false)').catch(() => {})
+    // ⚠️ 展开之后必须**立刻按当前光标位置重算一次穿透状态**。
+    //    收起那一刻留下的 ignore 可能是"穿透"（刚点完「–」，鼠标一挪就走了，
+    //    页面 260ms 后报了 none）—— 展开后不重算的话，她虽然出现了，
+    //    但第一次点击会直接穿到桌面上去，看着就是"点不动"。
+    //    反过来若留下的是"不穿透"，那 560×900 这块就会挡住桌面点击。
+    //    所以两种都不能留，展开后马上按真实光标判一次。
+    setTimeout(async () => {
+      try {
+        if (!win || win.isDestroyed() || !win.isVisible()) return
+        const p = screen.getCursorScreenPoint()
+        const b = win.getBounds()
+        if (p.x < b.x || p.x > b.x + b.width || p.y < b.y || p.y > b.y + b.height) {
+          setIgnore(true)                     // 光标不在窗口上 → 老老实实穿透
+          return
+        }
+        const kind = await win.webContents.executeJavaScript(
+          hitJS(Math.round(p.x - b.x), Math.round(p.y - b.y)))
+        lastHit = kind
+        overPanel = kind === 'panel'
+        lastHitAt = Date.now()
+        pollFails = 0
+        setIgnore(kind === 'none')
+      } catch (e) {}
+    }, 80)
   }
 }
 
